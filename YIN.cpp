@@ -21,13 +21,16 @@ vector<float> genSignal(float sampLength, float freq, float sampFreq, float phas
     return signal; 
 }
 
+
+// has been fixed to be inclusive similar to python
 vector<float> slice(vector<float> vec, size_t start, size_t end) {
     if (start >= vec.size() || end > vec.size() || start > end) {
         throw out_of_range("Invalid indices");
     }
-    return vector<float>(vec.begin() + start, vec.begin() + end);
+    return vector<float>(vec.begin() + start - 1, vec.begin() + end);
 }
 
+//Dot product has been checked and works 
 float dotProduct(vector<float> vec1, vector<float> vec2) {
     // Ensure both vectors have the same size
     if (vec1.size() != vec2.size()) {
@@ -45,14 +48,17 @@ float dotProduct(vector<float> vec1, vector<float> vec2) {
 //lag is the amount of samples you shift the window of the Auto Correlation Function by
 float ACF(vector<float> signal, int windowSize, float timeStep, int lag){
     // The ACF value (similar to error) can be found by finding the error between the signal and a suspected frequency
-    return dotProduct(slice(signal, timeStep, timeStep + windowSize), slice(signal, lag + timeStep, lag + timeStep + windowSize));
+    vector<float> sigStrip = slice(signal, timeStep, timeStep + windowSize);
+    vector<float> sigLag = slice(signal, lag + timeStep, lag + timeStep + windowSize);
+    return dotProduct(sigStrip, sigLag);
 }
 
 float YIN(vector<float> signal, int windowSize, float timeStep, float sampleRate, int lowBound, int highBound){
     if (highBound - lowBound < 0) throw invalid_argument("High bound must be greater than low bound"); 
 
-    //Collect all ACF_vals for all suspected frequencies between lowBound and highBound
     vector<float> ACF_vals;
+    // i is the timestep, or the starting sample of the signal
+    // windowSize is the size of the window we are looking at, basically a chunk of samples of the signal
     for (int i = lowBound; i < highBound; i++){ 
         ACF_vals.push_back(ACF(signal, windowSize, timeStep, i));
     }
@@ -76,13 +82,28 @@ int main(){
     int start = 0;
     int end = 5; 
     int numSamples = (sampleRate * (end - start) + 1);
-    int windowSize = 200; 
+    int windowSize = 200; //in samples
     int lowBound = 0; 
     int highBound = numSamples / 2; 
 
     vector<float> signal(numSamples);
     signal = genSignal(numSamples, 1, sampleRate, 0, 0);
     cout << "Detected Frequency in hz " << YIN(signal, windowSize, 1, sampleRate, lowBound, highBound); 
+
+    vector<float> tmp1;
+    tmp1.push_back(0.0f);
+    tmp1.push_back(1.0f);
+    tmp1.push_back(2.0f);
+    tmp1.push_back(3.0f);
+    tmp1.push_back(4.0f);
+    tmp1.push_back(5.0f);
+    tmp1.push_back(6.0f);
+    tmp1.push_back(7.0f);
+    tmp1.push_back(8.0f);
+    tmp1.push_back(9.0f);
+
+    vector<float> result = slice(tmp1, 0, 4);
+    for (int i = 0; i < result.size(); i++) cout << result[i] << endl; 
     
     return 0; 
 }; 
