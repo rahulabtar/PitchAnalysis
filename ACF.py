@@ -17,12 +17,17 @@ def findLocalMaxima(corrs):
     maxima = []
     for lag in range(1, size - 1):
         if (corrs[lag] >= corrs[lag - 1] and corrs[lag] >= corrs[lag + 1]): 
-            maxima.append(lag + 1)
+            maxima.append(lag)
+    #print(maxima)
     return maxima
 
+def findLocalMaximaInter(corrs):
+    maxima = findLocalMaxima(corrs)
+    return maxima + (0.5) * ((corrs[maxima - 1]) - corrs[maxima + 1]) / (corrs[maxima - 1] - 2 * corrs[maxima] + corrs[maxima + 1])
+
 #utilizes finding local maxima to calculate the distance between 
-def getFreqRahul(buffer,fs):
-    maxima = findLocalMaxima(buffer)
+def getFreq(corrs,fs, interpolate = True):
+    maxima = findLocalMaxima(corrs)
     if (len(maxima) < 2): return 0
     return fs / (maxima[1] - maxima[0])
     
@@ -33,12 +38,6 @@ def getCorr(samps):
     for lag in range(0, len(samps)):
          corrs.append((ACF(samps, lag))) 
     return corrs
-
-#calculates the frequency detected by find the lag that corresponds to distance between two ACF peaks
-def getFreq(corrs, fs):
-    corrs = corrs[1:] #get rid of first sample because lag of zero will lead to highest AC value
-    freq = fs / (corrs.index(max(corrs)) + 1) #maybe should be plus 2
-    return freq
 
 #scales the data between -1 and 1
 def maxAbsoluteScaling(data):
@@ -53,24 +52,43 @@ def genSin(f, fs, numSamp):
     samps = np.sin(2 * np.pi * (f / fs) * n)
     return samps
 
-#Creates a loop that increases the sampling frequency and lists key values into csv 
-with open('80Hz.csv', 'w', newline = '') as csvfile:
-    csvwriter = csv.writer(csvfile)
-    # Write the header row
-    csvwriter.writerow(['Sampling Frequency', 'True Frequency', 'Frequency Calculated', 'ACF Vals:'])
+#gets the error in cents between two given frequencies
+def getCentsError(fn, freqCalc):
+    try:
+        val = 1200 * np.log2(freqCalc/fn)
+    except:
+        val = "/0 error"
+    finally:
+        return val
 
-    fn = 82 #about the freq of low e string guitar fundamental
-    for fs in range(48000, 48010):
-        numSamps = round(fs / fn * 3) #generates 3 cycles of signal
-        samps = genSin(fn, fs, numSamps)
-        corrs = getCorr(samps)
-        #corrBestLag = corrs[1:].index(max(corrs[1:]))
-        #idealLag = fs / fn
-        #bestCorr = round(max(corrs[1:]),3)
-        freqCalc = getFreqRahul(corrs, fs)
-        roundedcorrs = [round(corr, 3) for corr in corrs]
-        #csvwriter.writerow([fs, corrBestLag, idealLag, bestCorr, freqCalc] + roundedcorrs)
-        csvwriter.writerow([fs, fn, freqCalc] + roundedcorrs)
+def quadInterpolate(x, x0, y0, x1, y1, x2, y2):
+    L0 = (x - x1) * (x - x2) / ((x0 - x1) * (x0 - x2))
+    L1 = (x - x0) * (x - x2) / ((x1 - x0) * (x1 - x2))
+    L2 = (x - x0) * (x - x1) / ((x2 - x0) * (x2 - x1))
+    return y0 * L0 + y1 * L1 + y2 * L2
+
+print(quadInterpolate(6, 2, 4, 5, 25, 8, 68))
+
+
+
+#Creates a loop that increases the sampling frequency and lists key values into csv 
+# with open('ACFTest96khz.csv', 'w', newline = '') as csvfile:
+#     csvwriter = csv.writer(csvfile)
+#     # Write the header row
+#     csvwriter.writerow(['Sampling Frequency', 'True Frequency', 'Frequency Calculated', 'Cents Error', 'ACF Vals:'])
+
+#     #fn = 800 #about the freq of low e string guitar fundamental
+#     fs = 96000
+#     fn = 970
+#     numcycles = 10
+#     for fn in range(50, 1000, 10):
+#         numSamps = round(fs / fn * 10) #generates 3 cycles of signal
+#         samps = genSin(fn, fs, numSamps)
+#         corrs = getCorr(samps) #get ACF values for various lag 
+#         freqCalc = getFreq(corrs, fs)
+#         roundedcorrs = [round(corr, 3) for corr in corrs]
+#         centserror = getCentsError(fn, freqCalc)
+#         csvwriter.writerow([fs, fn, freqCalc, centserror] + roundedcorrs)
 
 
 
